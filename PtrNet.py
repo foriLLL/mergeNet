@@ -109,7 +109,7 @@ class Attention(nn.Module):
         Attention - Forward-pass
 
         :param Tensor input: Hidden state h
-        :param Tensor context: Attention context
+        :param Tensor context: Attention context        decoder 中 forward 的 context 始终为 encoder 最后一个输出
         :param ByteTensor mask: Selection mask
         :return: tuple of - (Attentioned hidden state, Alphas)
         """
@@ -213,14 +213,14 @@ class Decoder(nn.Module):
             input = torch.sigmoid(input)
             forget = torch.sigmoid(forget)
             cell = torch.tanh(cell)
-            out = torch.sigmoid(out)
+            out = torch.sigmoid(out)    # 概率
 
-            c_t = (forget * c) + (input * cell)
-            h_t = out * torch.tanh(c_t)
-
+            c_t = (forget * c) + (input * cell) # 时间步t输出的c
+            h_t = out * torch.tanh(c_t)  # 概率乘 c_t，也就是attention pooling 后的结果
+ 
             # Attention section
-            hidden_t, output = self.att(h_t, context, torch.eq(mask, 0))
-            hidden_t = torch.tanh(self.hidden_out(torch.cat((hidden_t, h_t), 1)))
+            hidden_t, output = self.att(h_t, context, torch.eq(mask, 0)) # Attention 机制, output 为输出概率
+            hidden_t = torch.tanh(self.hidden_out(torch.cat((hidden_t, h_t), 1)))   # 拼接 hidden_t 和 h_t
 
             return hidden_t, c_t, output
 
