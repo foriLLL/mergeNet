@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 
-dataset_path = '../mergebert_data/tokenized'   
+dataset_path = './data/tokenized_output'   
 # 参数设置，ObjectDict是为了直接改之前代码
 class ObjectDict:
   pass
@@ -27,8 +27,8 @@ params.dropout = 0.4
 params.bidir = True
 params.embed_batch = 1
 params.bert_grad = False
-params.codeBERT = '../bert/CodeBERTa-small-v1'
-params.save_path = '../finalModel4MergeBertData'
+params.codeBERT = './bert/CodeBERTa-small-v1'
+params.save_path = './output/finalModel4MergeBertData'
 
 if params.gpu and torch.cuda.is_available():
     USE_CUDA = True
