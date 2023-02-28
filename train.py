@@ -10,14 +10,14 @@ import numpy as np
 from tqdm import tqdm
 
 
-dataset_path = './data/tokenized_output'   
+
 # 参数设置，ObjectDict是为了直接改之前代码
 class ObjectDict:
   pass
 
 params = ObjectDict()
 params.batch_size = 32
-params.nof_epoch = 100
+params.nof_epoch = 20
 params.lr = 0.01
 params.gpu = True
 params.embedding_size = 768
@@ -28,7 +28,7 @@ params.bidir = True
 params.embed_batch = 1
 params.bert_grad = False
 params.codeBERT = './bert/CodeBERTa-small-v1'
-params.save_path = './output/finalModel4MergeBertData'
+params.save_path = './output/finalModel4MergeBertData.pt'
 
 if params.gpu and torch.cuda.is_available():
     USE_CUDA = True
@@ -101,12 +101,6 @@ for epoch in range(params.nof_epoch):
         att_batch = sample_batched['attention_mask']      # 32 * 30 * 512     tokenized 后的每一行 token 中有效的部分（01矩阵）
         target_batch = sample_batched['label']            # 32 * 30          resolution 的行号排序
 
-
-
-        # if USE_CUDA:
-        #     input_batch = input_batch.cuda()
-        #     att_batch = att_batch.cuda()
-        #     target_batch = target_batch.cuda()
         
        # 改成不用batch试试
         model = PointerNet(params.embedding_size,
@@ -124,7 +118,7 @@ for epoch in range(params.nof_epoch):
 
         zs = []
         # valid_len_batch = sample_batched['lines'] # bug
-        for i in range(len(sample_batched['label'])):
+        for i in range(len(sample_batched['label'])):   # 0-32
             max_lines = max(sample_batched['label'][i]) + 1 # 拿到的是 lines 中<eos> 的索引 + 1
             # print(max_lines)
             probabilities, indices = model([input_batch[i:i+1, 0:max_lines], att_batch[i:i+1, 0:max_lines]]) # valid_len_batch
