@@ -45,12 +45,14 @@ class Encoder(nn.Module):
         :param Tensor hidden: Initiated hidden units for the LSTMs (h, c)
         :return: LSTMs outputs and hidden units (h, c)
         """
-        # print(embedded_inputs.shape) [240, 768]
-        embedded_inputs = embedded_inputs.permute(1, 0, 2)
+
+        embedded_inputs = embedded_inputs.permute(1, 0, 2)  # [30 * 32 * 768]
 
         outputs, hidden = self.lstm(embedded_inputs, hidden)
+        # LSTM  input   -> (L, N, H_in), (h_0, c_0)
+        #       output  -> (L, N, D*H_out), (h_n, c_n)
 
-        return outputs.permute(1, 0, 2), hidden
+        return outputs.permute(1, 0, 2), hidden # [32 * 30 * 768]   这个尺寸不对吧？ outputs应该是[32, 30, 1024], hidden[]
 
     def init_hidden(self, embedded_inputs):
         """
@@ -258,14 +260,14 @@ class Embedding(nn.Module):
         self.bert = codeBERT
         self.batch = batch_size
 
-    def forward(self, input_ids, attention_mask):
+    def forward(self, input_ids, attention_mask):   # 两个参数都是 batchsize * max_line * token后长度  (32*30*512)
         ret = self.bert(input_ids[0:self.batch], attention_mask[0:self.batch])['pooler_output']
-        for i in range(len(input_ids) // self.batch):
+        for i in range(len(input_ids) // self.batch):   
             if i == 0:
                 continue
             cur = self.bert(input_ids[self.batch * i: self.batch * (i + 1)], attention_mask[self.batch * i: self.batch * (i + 1)])['pooler_output']
-            ret = torch.cat([ret, cur], 0)
-        return ret
+            ret = torch.cat([ret, cur], 0)  # 这里这么做是保证所有batch都被embedding
+        return ret  # 960*768
 
 
 class PointerNet(nn.Module):
@@ -283,7 +285,7 @@ class PointerNet(nn.Module):
         """
         Initiate Pointer-Net
 
-        :param int embedding_dim: Number of embbeding channels
+        :param int embedding_dim: Number of embbeding channels      768
         :param int hidden_dim: Encoders hidden units
         :param int lstm_layers: Number of layers for LSTMs
         :param float dropout: Float between 0-1
@@ -322,24 +324,33 @@ class PointerNet(nn.Module):
 
         input_ids = inputs[0]
         att_mask = inputs[1]
+
+        # embedding
         input_ids = input_ids.view(-1, input_ids.size()[-1])    # 32*30*512 -> 960 * 512
         att_mask = att_mask.view(-1, att_mask.size()[-1])       # 32*30*512 -> 960 * 512
         embedded_inputs = self.embedding(input_ids, att_mask)   # 960 * 512 -> 960 * 768
         embedded_inputs = embedded_inputs.view(batch_size, -1, embedded_inputs.size()[-1])  # 960 * 768 -> 32 * 30 * 768
 
+        # encoder
         encoder_hidden0 = self.encoder.init_hidden(embedded_inputs)
+            # 输出  encoder_outputs [32, 30, D * H_out]  D = 2 if bidirection    H_out = 1024
+            #       encoder_hidden (h_n, c_n)    ([2*4, 1024], [2*4, 1024])   双向四层
         encoder_outputs, encoder_hidden = self.encoder(embedded_inputs,
                                                        encoder_hidden0)
+        
+        # decoder 第一个decoder的隐状态是最后一个encoder输出的隐状态
         if self.bidir:
             decoder_hidden0 = (torch.cat((encoder_hidden[0][-2], encoder_hidden[0][-1]), dim=-1),
-                               torch.cat((encoder_hidden[0][-2], encoder_hidden[0][-1]), dim=-1))
+                               torch.cat((encoder_hidden[0][-2], encoder_hidden[0][-1]), dim=-1))       # todo: 这里为什么不是[1][-2]
+                            # ([2048], [2048])
         else:
             decoder_hidden0 = (encoder_hidden[0][-1],
                                encoder_hidden[1][-1])
 
+
         (outputs, pointers), decoder_hidden = self.decoder(embedded_inputs,
-                                                           decoder_input0,
-                                                           decoder_hidden0,
-                                                           encoder_outputs)
+                                                           decoder_input0,      # decoder 第一个输入
+                                                           decoder_hidden0,     # decoder 第一个hidden state
+                                                           encoder_outputs)     # context 输出
 
         return outputs, pointers
