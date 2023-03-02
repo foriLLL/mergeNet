@@ -51,6 +51,7 @@ model = PointerNet(params.embedding_size,
                    embed_model,
                    params.bidir, )
 
+dataset_path = './output/tokenized_output'
 dataset = load_from_disk(dataset_path).with_format(type='torch')
 # dataset.train_test_split(test_size=0.1)
 dataset = dataset.shuffle(seed=random.randint(0, 100))['train']     # 注意这里和师兄代码有改动，师兄代码加载的DatasetDict没有splits
