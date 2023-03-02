@@ -17,7 +17,7 @@ def res_indices(conflict):
         conflict: 冲突，需要有 ours, theirs, resolve
     
     Returns:
-        label: resolve 对应在 lines 里的行号
+        label: resolve 对应在 lines 里的行号（没包括<eos>
         lines: ours+theirs 的所有行
     '''
     code_lines = []
@@ -45,7 +45,7 @@ def padding(example, max_len):
         max_len: a+b+<eos>的总行数不应超过 max_len，resolution+<eos> 也不应该超过max_len
         example: 一个样本，需要保证加入一个<eos>不会超过最长max_len
     '''
-    valid_len = len(example['label'])
+    valid_len = len(example['label'])   # resolved 的行数
     pad_lines = example['lines'] + ['<eos>']
     pad_label = example['label'] + [len(example['lines'])]
 
@@ -63,7 +63,7 @@ def padding(example, max_len):
         'resolve': pad_resolve,
         'lines': pad_lines,
         'label': pad_label,
-        'valid_len': valid_len + 1
+        'valid_len': valid_len + 1  # resolved行数加上<eos>
     }
 
 
