@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 params = dict()
 params['batch_size'] = 32
-params['nof_epoch'] = 2
+params['nof_epoch'] = 30
 params['lr'] = 0.01
 params['gpu'] = True
 params['embedding_size'] = 768
@@ -52,7 +52,9 @@ model = PointerNet(params['embedding_size'],
 dataset_path = './output/tokenized_output'
 dataset = load_from_disk(dataset_path).with_format(type='torch')
 # dataset.train_test_split(test_size=0.1)
-dataset = dataset.shuffle(seed=random.randint(0, 100))['train']     # 注意这里和师兄代码有改动，师兄代码加载的DatasetDict没有splits
+
+# dataset = dataset.shuffle(seed=random.randint(0, 100))['train']     # 注意这里和师兄代码有改动，师兄代码加载的DatasetDict没有splits
+dataset = dataset.shuffle(seed=1)['train']     # 注意这里和师兄代码有改动，师兄代码加载的DatasetDict没有splits
 
 if params['gpu'] and torch.cuda.is_available():
     USE_CUDA = True
@@ -117,9 +119,26 @@ for epoch in range(params['nof_epoch']):
 
 
         valid_len_batch = sample_batched['valid_len']               # batch 中每个冲突块实际resolved结果的长度（包括<eos>
+        a_b_line_list = sample_batched['lines'] # a+b+eos的所有行，是list，且是30*32形状
+        eos_index = [ [row[i] for row in a_b_line_list].index('<eos>') for i in range(len(a_b_line_list[0]))]
+
         cur_batch_size = len(valid_len_batch)
 
-        pred = torch.tensor([torch.argmax(probs) for example in batch_probabilities for probs in example], dtype=torch.int64)
+        # 第一处修改是改成下标+1（行号从1开始），第二处修改是 valid_len+1后直接改成0
+        pred = torch.tensor([torch.argmax(probs)+1 for example in batch_probabilities for probs in example], dtype=torch.int64)
+        for i in range(cur_batch_size):    # 0-32
+            metEOS = False
+            for j in range(max_len):       # 0-30
+                if metEOS:
+                    pred[i*max_len + j] = 0
+                    continue
+                if pred[i*max_len + j] == eos_index[i]+1:   # to check if bug
+                    metEOS = True
+        
+
+
+        
+
         pred = pred.view(cur_batch_size, max_len)   # 预测结果
         if USE_CUDA:
             pred = pred.cuda()
@@ -136,20 +155,26 @@ for epoch in range(params['nof_epoch']):
             mask_tensor = mask_tensor.cuda()
             batch_probabilities = batch_probabilities.cuda()
 
-        mask_tensor = mask_tensor.view(-1)
+        # mask_tensor = mask_tensor.view(-1)
 
-        batch_probabilities = batch_probabilities.contiguous().view(-1, batch_probabilities.size()[-1])
-        target_batch = target_batch.view(-1)
+        # batch_probabilities = batch_probabilities.contiguous().view(-1, batch_probabilities.size()[-1])
+        # target_batch = target_batch.view(-1)
 
-        # 可能存在的问题，valid_len后所有概率都为0，loss始终为3.4
-        loss = CCE(batch_probabilities, target_batch)
 
-        # 下面这两行代码相当于什么也没干
-        loss = torch.mul(loss, mask_tensor)
-        loss = loss.sum() / valid_len_batch.sum()
-
+        loss = torch.sum(torch.square(target_batch - pred), dtype=float)
+        loss.requires_grad = True
         losses.append(loss.data)
         batch_loss.append(loss.data.cpu())
+
+        # 可能存在的问题，valid_len后所有概率都为0，loss始终为3.4
+        # loss = CCE(batch_probabilities, target_batch)
+
+        # # 下面这两行代码相当于什么也没干
+        # loss = torch.mul(loss, mask_tensor)
+        # loss = loss.sum() / valid_len_batch.sum()
+
+        # losses.append(loss.data)
+        # batch_loss.append(loss.data.cpu())
 
         model_optim.zero_grad()
         loss.backward()
@@ -157,7 +182,7 @@ for epoch in range(params['nof_epoch']):
 
         iterator.set_postfix(loss='{}'.format(loss.data))
 
-    print('Epoch {0} / {1}, average loss : {2} , average accuracy : {3}'.
-          format(epoch + 1, params['nof_epoch'], np.average(batch_loss), batch_acc / len(dataset)))
+    print('Epoch {0} / {1}, average loss : {2} , average accuracy : {3}%'.
+          format(epoch + 1, params['nof_epoch'], np.average(batch_loss), batch_acc / len(dataset) * 100))
 
 torch.save(model.state_dict(), params['save_path'])

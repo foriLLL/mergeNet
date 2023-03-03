@@ -4,9 +4,9 @@ from transformers import RobertaTokenizer
 import torch
 
 
-dataset_path = '../mergebert_data/tokenized'                # output
-load_path = "../mergebert_data/raw_data/nodoc_noAcceptOneSide_noNewLine.json"  # raw data
-bert_path = "../bert/CodeBERTa-small-v1"
+dataset_path = './output/tokenized_output'                # output
+load_path = "./data/raw_data/nodoc_noAcceptOneSide_noNewLine.json"  # raw data
+bert_path = "./bert/CodeBERTa-small-v1"
 max_len = 30
 
 
@@ -30,7 +30,7 @@ def res_indices(conflict):
         for line in conflict['resolve']:
             for i in range(len(code_lines)):
                 if line == code_lines[i]:
-                    indices.append(i)
+                    indices.append(i+1)  # 改成i+1则行号下标从1开始，len+1为<eos>，0为超出
                     break
     return {'label': indices, 'lines': code_lines}
 
@@ -47,7 +47,7 @@ def padding(example, max_len):
     '''
     valid_len = len(example['label'])   # resolved 的行数
     pad_lines = example['lines'] + ['<eos>']
-    pad_label = example['label'] + [len(example['lines'])]
+    pad_label = example['label'] + [len(example['lines']) + 1]  # len + 1 对应 <eos>
 
     for _ in range(max_len - len(example['lines']) - 1): # 填充到max_len
         pad_lines = pad_lines + ['<pad>']
@@ -63,7 +63,7 @@ def padding(example, max_len):
         'resolve': pad_resolve,
         'lines': pad_lines,
         'label': pad_label,
-        'valid_len': valid_len + 1  # resolved行数加上<eos>
+        'valid_len': valid_len + 1  # resolved 行数加上 <eos>
     }
 
 

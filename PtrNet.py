@@ -242,7 +242,7 @@ class Decoder(nn.Module):
             mask = mask * (1 - one_hot_pointers)
 
             # Get embedded inputs by max indices
-            embedding_mask = one_hot_pointers.unsqueeze(2).expand(-1, -1, self.embedding_dim).byte()
+            embedding_mask = one_hot_pointers.unsqueeze(2).expand(-1, -1, self.embedding_dim).bool()
             decoder_input = embedded_inputs[embedding_mask.data].view(batch_size, self.embedding_dim)
 
             outputs.append(outs.unsqueeze(0))
