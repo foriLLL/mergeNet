@@ -78,10 +78,12 @@ max_len = 30
 for epoch in range(params['nof_epoch']):
     batch_loss = []
     batch_acc = 0
-    iterator = tqdm(dataloader, unit='Batch')
+    # iterator = tqdm(dataloader, unit='Batch')
 
-    for i_batch, sample_batched in enumerate(iterator):
-        iterator.set_description('Epoch %i/%i' % (epoch + 1, params['nof_epoch']))
+    for i_batch, sample_batched in enumerate(dataloader):
+        if i_batch % 100 == 0:
+            print(f'training {i_batch} batches in epoch {epoch}')
+        # iterator.set_description('Epoch %i/%i' % (epoch + 1, params['nof_epoch']))
 
         input_batch = sample_batched['input_ids']         # 32 * 30 * 512     tokenized 后的每一行
         att_batch = sample_batched['attention_mask']      # 32 * 30 * 512     tokenized 后的每一行 token 中有效的部分（01矩阵）
@@ -107,7 +109,7 @@ for epoch in range(params['nof_epoch']):
         for i in range(len(sample_batched['label'])):   # 0-32
             max_lines = max(sample_batched['label'][i]) # 拿到的是 lines 中 <eos> 的索引
             # 只传入每个冲突块 a+b+<eos> 的总行数的embedding表示（其余的行都一样
-            probabilities, indices = model([input_batch[i:i+1, 0:max_lines+1], att_batch[i:i+1, 0:max_lines+1]])
+            probabilities, indices = model([input_batch[i:i+1, 0:max_lines], att_batch[i:i+1, 0:max_lines]])
 
             z = torch.zeros(1,30,30)
             for j in range(probabilities.shape[1]):
@@ -152,6 +154,10 @@ for epoch in range(params['nof_epoch']):
         for i in range(len(valid_len_batch)):
             if pred[i][0:valid_len_batch[i]].equal(target_batch[i][0:valid_len_batch[i]]):  # 预测与实际相符
                 batch_acc += 1
+                # print("accurate: ",batch_acc)
+                # print(pred[i][0:valid_len_batch[i]])
+                # print(target_batch[i][0:valid_len_batch[i]])
+                # print('*' * 10)
 
 
         target_batch = target_batch.view(-1)
@@ -163,9 +169,9 @@ for epoch in range(params['nof_epoch']):
         loss.backward()
         model_optim.step()
 
-        iterator.set_postfix(loss='{}'.format(loss.data))
+        # iterator.set_postfix(loss='{}'.format(loss.data))
 
     print('Epoch {0} / {1}, average loss : {2} , average accuracy : {3}%'.
-          format(epoch + 1, params['nof_epoch'], np.average(batch_loss), batch_acc / len(dataset) * 100))
+          format(epoch + 1, params['nof_epoch'], np.average(batch_loss), batch_acc / len(dataset['train']) * 100))
 
 torch.save(model.state_dict(), params['save_path'])
