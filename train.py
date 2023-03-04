@@ -140,11 +140,11 @@ for epoch in range(params['nof_epoch']):
 
         batch_probabilities = batch_probabilities.contiguous().view(-1, batch_probabilities.size()[-1]) # [32*30, 30]
 
-        # 将 batch_probabilities 在 eos 后的 0 都改为 1000
+        # 将 batch_probabilities 在 eos 后的 0 都改为 1
         for i in range(len(batch_probabilities)):
             if pred[i] == 0:
                 batch_probabilities[i][:] = 0
-                batch_probabilities[i][0] = 1000
+                batch_probabilities[i][0] = 1
 
         pred = pred.view(cur_batch_size, max_len)   # 预测结果
         if USE_CUDA:
