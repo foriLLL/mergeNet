@@ -53,8 +53,7 @@ dataset_path = './output/tokenized_output'
 dataset = load_from_disk(dataset_path).with_format(type='torch')
 # dataset.train_test_split(test_size=0.1)
 
-# dataset = dataset.shuffle(seed=random.randint(0, 100))['train']     # 注意这里和师兄代码有改动，师兄代码加载的DatasetDict没有splits
-dataset = dataset.shuffle(seed=1)['train']     # 注意这里和师兄代码有改动，师兄代码加载的DatasetDict没有splits
+ataset = dataset.shuffle(seed=random.randint(0, 100))['train']     # 注意这里和师兄代码有改动，师兄代码加载的DatasetDict没有splits
 
 if params['gpu'] and torch.cuda.is_available():
     USE_CUDA = True
@@ -120,7 +119,7 @@ for epoch in range(params['nof_epoch']):
 
         valid_len_batch = sample_batched['valid_len']               # batch 中每个冲突块实际resolved结果的长度（包括<eos>
         a_b_line_list = sample_batched['lines'] # a+b+eos的所有行，是list，且是30*32形状
-        eos_index = [ [row[i] for row in a_b_line_list].index('<eos>') for i in range(len(a_b_line_list[0]))]
+        eos_index = [ [row[i] for row in a_b_line_list].index('<eos>')+1 for i in range(len(a_b_line_list[0]))]
 
         cur_batch_size = len(valid_len_batch)
 
@@ -132,12 +131,20 @@ for epoch in range(params['nof_epoch']):
                 if metEOS:
                     pred[i*max_len + j] = 0
                     continue
-                if pred[i*max_len + j] == eos_index[i]+1:   # to check if bug
+                if pred[i*max_len + j] == eos_index[i]:
                     metEOS = True
         
 
+        if USE_CUDA:
+            batch_probabilities = batch_probabilities.cuda()
 
-        
+        batch_probabilities = batch_probabilities.contiguous().view(-1, batch_probabilities.size()[-1]) # [32*30, 30]
+
+        # 将 batch_probabilities 在 eos 后的 0 都改为 1000
+        for i in range(len(batch_probabilities)):
+            if pred[i] == 0:
+                batch_probabilities[i][:] = 0
+                batch_probabilities[i][0] = 1000
 
         pred = pred.view(cur_batch_size, max_len)   # 预测结果
         if USE_CUDA:
@@ -146,35 +153,11 @@ for epoch in range(params['nof_epoch']):
             if pred[i][0:valid_len_batch[i]].equal(target_batch[i][0:valid_len_batch[i]]):  # 预测与实际相符
                 batch_acc += 1
 
-        # 如果训练的时候都告诉他实际长度，实际inference阶段怎么办？
-        mask_tensor = torch.zeros(size=(batch_probabilities.size()[:2]))  # 32 * 30
-        for i in range(batch_probabilities.size()[0]):
-            mask_tensor[i][0:valid_len_batch[i]] = 1
 
-        if USE_CUDA:
-            mask_tensor = mask_tensor.cuda()
-            batch_probabilities = batch_probabilities.cuda()
-
-        # mask_tensor = mask_tensor.view(-1)
-
-        # batch_probabilities = batch_probabilities.contiguous().view(-1, batch_probabilities.size()[-1])
-        # target_batch = target_batch.view(-1)
-
-
-        loss = torch.sum(torch.square(target_batch - pred), dtype=float)
-        loss.requires_grad = True
+        target_batch = target_batch.view(-1)
+        loss = CCE(batch_probabilities, target_batch)
         losses.append(loss.data)
         batch_loss.append(loss.data.cpu())
-
-        # 可能存在的问题，valid_len后所有概率都为0，loss始终为3.4
-        # loss = CCE(batch_probabilities, target_batch)
-
-        # # 下面这两行代码相当于什么也没干
-        # loss = torch.mul(loss, mask_tensor)
-        # loss = loss.sum() / valid_len_batch.sum()
-
-        # losses.append(loss.data)
-        # batch_loss.append(loss.data.cpu())
 
         model_optim.zero_grad()
         loss.backward()
