@@ -56,7 +56,7 @@ def padding(example, max_len):
 
     # padding resolve
     pad_resolve = example['resolve'] + ['<line_eos>']
-    for i in range(max_len - len(example['resolve']) - 1):
+    for _ in range(max_len - len(example['resolve']) - 1):
         pad_resolve = pad_resolve + ['<line_pad>']                   # 注意 resolution 没加 eos   为什么没加，我先加上
 
     return {

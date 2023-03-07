@@ -27,12 +27,12 @@ params['save_path'] = './output/finalModel4MergeBertData.pt'
 params['dataset_path'] = './output/tokenized_output'                # tokenized dataset path
 
 # 加载数据集
-dataset = load_from_disk(params['dataset_path']).with_format(type='torch')
+dataset = load_from_disk(params['dataset_path']).with_format(type='torch')['train']
 # dataset.train_test_split(test_size=0.1)
-dataset = dataset.shuffle(seed=random.randint(0, 100))['train']     # 注意这里和师兄代码有改动，师兄代码加载的DatasetDict没有splits
+# dataset = dataset.shuffle(seed=random.randint(0, 100))     # 注意这里和师兄代码有改动，师兄代码加载的DatasetDict没有splits
 dataloader = DataLoader(dataset,
                         batch_size=params['batch_size'],
-                        shuffle=True,
+                        shuffle=False,
                         num_workers=0)
 
 
@@ -49,16 +49,10 @@ model = PointerNet(params['embedding_size'],
                    embed_model,
                    params['bidir'])
 
-dataset_path = './output/tokenized_output'
-dataset = load_from_disk(dataset_path).with_format(type='torch')
-# dataset.train_test_split(test_size=0.1)
-
-ataset = dataset.shuffle(seed=random.randint(0, 100))['train']     # 注意这里和师兄代码有改动，师兄代码加载的DatasetDict没有splits
-
 if params['gpu'] and torch.cuda.is_available():
     USE_CUDA = True
     model.cuda()
-    net = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
+    # net = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
     print('Using GPU, %i devices.' % torch.cuda.device_count())
 else:
@@ -102,6 +96,8 @@ for epoch in range(params['nof_epoch']):
             att_batch = att_batch.cuda()
             target_batch = target_batch.cuda()
             model = model.cuda()
+
+        print(params)
 
 
         # 拿出每个batch每行的概率矩阵
