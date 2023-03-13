@@ -52,7 +52,7 @@ model = PointerNet(params['embedding_size'],
 if params['gpu'] and torch.cuda.is_available():
     USE_CUDA = True
     model.cuda()
-    # net = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
+    model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
     print('Using GPU, %i devices.' % torch.cuda.device_count())
 else:
@@ -66,6 +66,7 @@ model_optim = optim.Adam(filter(lambda p: p.requires_grad,
                          lr=params['lr'])
 
 
+print(params)
 # 开始训练
 losses = []
 max_len = 30 
@@ -97,7 +98,6 @@ for epoch in range(params['nof_epoch']):
             target_batch = target_batch.cuda()
             model = model.cuda()
 
-        print(params)
 
 
         # 拿出每个batch每行的概率矩阵
@@ -168,6 +168,6 @@ for epoch in range(params['nof_epoch']):
         # iterator.set_postfix(loss='{}'.format(loss.data))
 
     print('Epoch {0} / {1}, average loss : {2} , average accuracy : {3}%'.
-          format(epoch + 1, params['nof_epoch'], np.average(batch_loss), batch_acc / len(dataset['train']) * 100))
+          format(epoch + 1, params['nof_epoch'], np.average(batch_loss), batch_acc / len(dataset) * 100))
 
 torch.save(model.state_dict(), params['save_path'])
