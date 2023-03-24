@@ -2,12 +2,12 @@
 from datasets import load_dataset
 from transformers import RobertaTokenizer
 import torch
-
+from config import max_len
 
 dataset_path = './output/tokenized_output'                # output
 load_path = "./data/raw_data/nodoc_noAcceptOneSide_noNewLine.json"  # raw data
 bert_path = "./bert/CodeBERTa-small-v1"
-max_len = 30
+
 
 
 def res_indices(conflict):

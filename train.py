@@ -8,6 +8,7 @@ from datasets import load_from_disk
 from transformers import RobertaModel
 import numpy as np
 from tqdm import tqdm
+from config import max_len
 
 
 params = dict()
@@ -69,15 +70,13 @@ model_optim = optim.Adam(filter(lambda p: p.requires_grad,
 print(params)
 # 开始训练
 losses = []
-max_len = 30 
 for epoch in range(params['nof_epoch']):
     batch_loss = []
-    batch_acc = 0
+    acc_ans = 0
     # iterator = tqdm(dataloader, unit='Batch')
 
     for i_batch, sample_batched in enumerate(dataloader):
-        if i_batch % 100 == 0:
-            print(f'training {i_batch} batches in epoch {epoch}')
+        batch_acc = 0
         # iterator.set_description('Epoch %i/%i' % (epoch + 1, params['nof_epoch']))
 
         input_batch = sample_batched['input_ids']         # 32 * 30 * 512     tokenized 后的每一行
@@ -85,18 +84,11 @@ for epoch in range(params['nof_epoch']):
         target_batch = sample_batched['label']            # 32 * 30          resolution 的行号排序
         
        # 改成不用batch试试
-        model = PointerNet(params['embedding_size'],
-                    params['hiddens'],
-                    params['nof_lstms'],
-                    params['dropout'],
-                    params['embed_batch'],
-                    embed_model,
-                    params['bidir'], )
+
         if USE_CUDA:
             input_batch = input_batch.cuda()
             att_batch = att_batch.cuda()
             target_batch = target_batch.cuda()
-            model = model.cuda()
 
 
 
@@ -149,6 +141,7 @@ for epoch in range(params['nof_epoch']):
             pred = pred.cuda()
         for i in range(len(valid_len_batch)):
             if pred[i][0:valid_len_batch[i]].equal(target_batch[i][0:valid_len_batch[i]]):  # 预测与实际相符
+                acc_ans += 1
                 batch_acc += 1
                 # print("accurate: ",batch_acc)
                 # print(pred[i][0:valid_len_batch[i]])
@@ -161,6 +154,9 @@ for epoch in range(params['nof_epoch']):
         losses.append(loss.data)
         batch_loss.append(loss.data.cpu())
 
+        if i_batch % 1 == 0:
+            print(f'training {i_batch} batches in epoch {epoch}, loss = {loss.data}, batch_acc = {batch_acc} / {len(sample_batched)}')
+
         model_optim.zero_grad()
         loss.backward()
         model_optim.step()
@@ -168,6 +164,6 @@ for epoch in range(params['nof_epoch']):
         # iterator.set_postfix(loss='{}'.format(loss.data))
 
     print('Epoch {0} / {1}, average loss : {2} , average accuracy : {3}%'.
-          format(epoch + 1, params['nof_epoch'], np.average(batch_loss), batch_acc / len(dataset) * 100))
+          format(epoch + 1, params['nof_epoch'], np.average(batch_loss), acc_ans / len(dataset) * 100))
 
 torch.save(model.state_dict(), params['save_path'])
