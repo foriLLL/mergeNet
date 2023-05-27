@@ -73,7 +73,7 @@ def tokenize_func(example):
 
 
 # start processing
-dataset = load_dataset("json", data_files=load_path, field="mergeTuples")
+dataset = load_dataset("json", data_files=load_path)
 
 tokenizer = RobertaTokenizer.from_pretrained(bert_path)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

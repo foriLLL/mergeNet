@@ -13,8 +13,8 @@ from config import max_len
 
 params = dict()
 params['batch_size'] = 32
-params['nof_epoch'] = 30
-params['lr'] = 0.01
+params['nof_epoch'] = 200
+params['lr'] = 0.001
 params['gpu'] = True
 params['embedding_size'] = 768
 params['hiddens'] = 1024
@@ -155,7 +155,7 @@ for epoch in range(params['nof_epoch']):
         batch_loss.append(loss.data.cpu())
 
         if i_batch % 1 == 0:
-            print(f'training {i_batch} batches in epoch {epoch}, loss = {loss.data}, batch_acc = {batch_acc} / {len(sample_batched)}')
+            print(f"training {i_batch} batches in epoch {epoch}, loss = {loss.data}, batch_acc = {batch_acc} / {len(sample_batched['label'])}")
 
         model_optim.zero_grad()
         loss.backward()
