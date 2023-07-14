@@ -6,3 +6,4 @@
 /output/
 /log/
 /.venv
+.DS_Store
