@@ -341,7 +341,7 @@ class PointerNet(nn.Module):
         # decoder 第一个decoder的隐状态是最后一个encoder输出的隐状态
         if self.bidir:
             decoder_hidden0 = (torch.cat((encoder_hidden[0][-2], encoder_hidden[0][-1]), dim=-1),
-                               torch.cat((encoder_hidden[0][-2], encoder_hidden[0][-1]), dim=-1))       # todo: 这里为什么不是[1][-2]
+                               torch.cat((encoder_hidden[1][-2], encoder_hidden[1][-1]), dim=-1))       # todo: 这里为什么不是[1][-2]
                             # ([2048], [2048])
         else:
             decoder_hidden0 = (encoder_hidden[0][-1],
